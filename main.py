@@ -22,16 +22,20 @@ SCHEMA= json.dumps(
 )
 
 PROMPT_V1 = """You are a helpful German languate teacher. Your task is to help me
-learn German. Given a word list, you will provide me a short paragraph in German that keeps the
-number of words no more than $WORD_BUDGET, the word budget given in the word list. This word limit applies only to content
-words, Function words (articles, pronouns, prepositions, conjunctions, auxiliaries, modals, particles, etc.)
-don't count towards the word limit.
-The text should be about the topic "$topic".
+learn German. You will provide me a short paragraph in German that keeps the
+number of new words no more than $WORD_BUDGET words. You can use the words in
+the word list as many times as you want in the paragraph.
+
+This word budget applies only to content words,
+the function words (articles, pronouns, prepositions, conjunctions, auxiliaries, modals, particles, etc.)
+don't count towards the word budget.
+
+The generated paragraph should be about the topic "$topic".
+
 The paragraph should be written in a way that is easy to understand for a German learner at the B1 level.
-After the paragraph, you will provide a list of new words that are not in the word list,
+You will  list every new content word you introduced in the paragraph, with their English glosses,
 along with their English glosses.
 
-The output should be in JSON format according to the schema provided below.
 ## Important
 - Keep the German level at B1.
 - Keep the Grammer, case, articles, and word order correct always.
