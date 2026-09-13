@@ -2,6 +2,7 @@ import anthropic
 import json
 from dotenv import load_dotenv
 from string import Template
+import spacy
 
 load_dotenv()
 client = anthropic.Anthropic()
@@ -72,6 +73,18 @@ topics = [
     "Umzug in ein neues Haus",
 ]
 
+
+FILE_FREE_WORDS = "free_words.txt"
+
+
+def load_free_words() -> set:
+    with open(FILE_FREE_WORDS, "r") as f:
+         return {stripped for line in f.readlines() if((stripped := line.strip()) and not stripped.startswith("#"))}
+
+FREE_WORDS = { word.lower() for word in load_free_words()}
+
+nlp = spacy.load("de_core_news_sm")
+
 def main():
     for i in range(10):
         topic = topics[i]
@@ -102,7 +115,9 @@ def beHappy(topic: str):
                 data = validate_json(extract_json(block.text))
                 print(f"{message.role}: {data}")
                 to_save = {"role": message.role, "content": data}
-                save_json_to_file(to_save, "output.json")
+                new_words = find_new_words(data[FIELD_TEXT], {word.lower() for word in word_list})
+                with_new_words = {"response": to_save, "new_words": list(new_words)}
+                save_json_to_file(with_new_words, "output.json")
     except ValueError as e:
         err = {
             "type": "error",
@@ -110,6 +125,17 @@ def beHappy(topic: str):
         }
         print(f"Error: {err}")
 
+def find_new_words(text: str, known: set[str]) -> set[str]:
+    new_words = set()
+    doc = nlp(text)
+    for token in doc:
+        if not token.is_punct and not token.is_space:
+            lemma = token.lemma_.lower()
+            if lemma not in known and lemma not in FREE_WORDS:
+                pos = token.pos_
+                if pos in ["NOUN", "VERB", "ADJ", "ADV"]:
+                   new_words.add(lemma)
+    return new_words
 
 def extract_json(text: str):
     i = text.find("{")
