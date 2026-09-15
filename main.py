@@ -48,7 +48,7 @@ $SCHEMA
 word list to use: $word_list
 """
 
-word_list = [
+words_to_generate_from = [
     "Haus",
     "Baum",
     "Katze",
@@ -60,6 +60,7 @@ word_list = [
     "Freund",
     "Familie",
 ]
+
 topics = [
     "Ein Tag zu Hause",
     "Mein Haustier",
@@ -75,18 +76,20 @@ topics = [
 
 
 FILE_FREE_WORDS = "free_words.txt"
+FILE_KNOWN_WORDS = "known_words.txt"
+NEW_WORD_BUDGET = 10
 
-
-def load_free_words() -> set:
-    with open(FILE_FREE_WORDS, "r") as f:
+def load_words(path: str) -> set:
+    with open(path, "r") as f:
          return {stripped for line in f.readlines() if((stripped := line.strip()) and not stripped.startswith("#"))}
 
-FREE_WORDS = { word.lower() for word in load_free_words()}
+FREE_WORDS = { word.lower() for word in load_words(FILE_FREE_WORDS)}
+KNOWN_WORDS =  { word.lower() for word in load_words(FILE_KNOWN_WORDS)}
 
 nlp = spacy.load("de_core_news_sm")
 
 def main():
-    for i in range(10):
+    for i in range(5):
         topic = topics[i]
         beHappy(topic)
 
@@ -100,9 +103,9 @@ def beHappy(topic: str):
             {
                 "role": "user",
                 "content": Template(PROMPT_V1).substitute(
-                    word_list=",".join(word_list),
+                    word_list=",".join(words_to_generate_from),
                     SCHEMA=SCHEMA,
-                    WORD_BUDGET=len(word_list),
+                    WORD_BUDGET=NEW_WORD_BUDGET,
                     topic=topic,
                 ),
             }
@@ -115,8 +118,8 @@ def beHappy(topic: str):
                 data = validate_json(extract_json(block.text))
                 print(f"{message.role}: {data}")
                 to_save = {"role": message.role, "content": data}
-                new_words = find_new_words(data[FIELD_TEXT], {word.lower() for word in word_list})
-                with_new_words = {"response": to_save, "new_words": list(new_words)}
+                new_words = find_new_words(data[FIELD_TEXT], KNOWN_WORDS)
+                with_new_words = {"response": to_save, "new_words_spacy": list(new_words), "new_words_spacy_count": len(new_words)}
                 save_json_to_file(with_new_words, "output.json")
     except ValueError as e:
         err = {
