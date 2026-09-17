@@ -118,7 +118,7 @@ def beHappy(topic: str):
                 data = validate_json(extract_json(block.text))
                 print(f"{message.role}: {data}")
                 to_save = {"role": message.role, "content": data}
-                new_words = find_new_words(data[FIELD_TEXT], KNOWN_WORDS)
+                new_words = find_new_words(data.get(FIELD_TEXT), KNOWN_WORDS)
                 with_new_words = {"response": to_save, "new_words_spacy": list(new_words), "new_words_spacy_count": len(new_words)}
                 save_json_to_file(with_new_words, "output.json")
     except ValueError as e:
@@ -128,7 +128,9 @@ def beHappy(topic: str):
         }
         print(f"Error: {err}")
 
-def find_new_words(text: str, known: set[str]) -> set[str]:
+def find_new_words(text: str | None, known: set[str]) -> set[str]:
+    if not text:
+        raise ValueError("Text is empty or None")
     new_words = set()
     doc = nlp(text)
     for token in doc:
@@ -150,13 +152,13 @@ def extract_json(text: str):
 
 
 def validate_json(obj: dict):
-    if not obj[FIELD_TITLE]:
+    if not obj.get(FIELD_TITLE):
         raise ValueError(f"Missing '{FIELD_TITLE}' field in the JSON object")
-    if not obj[FIELD_TEXT]:
+    if not obj.get(FIELD_TEXT):
         raise ValueError(f"Missing '{FIELD_TEXT}' field in the JSON object")
-    if not obj[FIELD_NEW_WORDS]:
+    if not obj.get(FIELD_NEW_WORDS):
         raise ValueError(f"Missing '{FIELD_NEW_WORDS}' field in the JSON object")
-    NEW_WORDS = obj[FIELD_NEW_WORDS]
+    NEW_WORDS = obj.get(FIELD_NEW_WORDS)
     if not isinstance(NEW_WORDS, list):
         print(f"NEW_WORDS: {NEW_WORDS}")
         raise ValueError(f"'{FIELD_NEW_WORDS}' field must be a list")
@@ -165,9 +167,9 @@ def validate_json(obj: dict):
             raise ValueError(
                 f"Each element in '{FIELD_NEW_WORDS}' must be a dictionary"
             )
-        if not e[FIELD_WORD]:
+        if not e.get(FIELD_WORD):
             raise ValueError(f"Missing '{FIELD_WORD}' field in the new word object")
-        if not e[FIELD_GLOSS]:
+        if not e.get(FIELD_GLOSS):
             raise ValueError(f"Missing '{FIELD_GLOSS}' field in the new word object")
 
     return {
