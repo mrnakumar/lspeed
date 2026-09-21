@@ -34,8 +34,7 @@ don't count towards the word budget.
 The generated paragraph should be about the topic "$topic".
 
 The paragraph should be written in a way that is easy to understand for a German learner at the B1 level.
-You will  list every new content word you introduced in the paragraph, with their English glosses,
-along with their English glosses.
+You will  list every new content word you introduced in the paragraph, along with their English glosses.
 
 ## Important
 - Keep the German level at B1.
@@ -48,6 +47,23 @@ $SCHEMA
 word list to use: $word_list
 """
 
+PROMPT_REPAIR = """
+The German paragraph below uses words I don't know yet.
+Rewrite it so that these words no longer appear:
+$offending_words
+
+Keep the same topic, the same length, and the same B1 level. Replace each word with something I already know, or rephrase the sentence.
+Replace them with words from this list, or with words already in the paragraph:
+$word_list
+
+Do not introduce other new content words.
+
+Paragraph to rewrite:
+$previous_text
+
+Always answer in the following JSON schema:
+$SCHEMA
+"""
 words_to_generate_from = [
     "Haus",
     "Baum",
@@ -77,29 +93,42 @@ topics = [
 
 FILE_FREE_WORDS = "free_words.txt"
 FILE_KNOWN_WORDS = "known_words.txt"
-NEW_WORD_BUDGET = 10
+NEW_WORD_BUDGET = 3
+
 
 def load_words(path: str) -> set:
     with open(path, "r") as f:
-         return {stripped for line in f.readlines() if((stripped := line.strip()) and not stripped.startswith("#"))}
+        return {
+            stripped
+            for line in f.readlines()
+            if ((stripped := line.strip()) and not stripped.startswith("#"))
+        }
 
-FREE_WORDS = { word.lower() for word in load_words(FILE_FREE_WORDS)}
-KNOWN_WORDS =  { word.lower() for word in load_words(FILE_KNOWN_WORDS)}
+
+FREE_WORDS = {word.lower() for word in load_words(FILE_FREE_WORDS)}
+KNOWN_WORDS = {word.lower() for word in load_words(FILE_KNOWN_WORDS)}
 
 nlp = spacy.load("de_core_news_sm")
+import os
+
 
 def main():
     for i in range(5):
         topic = topics[i]
-        beHappy(topic)
+        try:
+            generate_topic(topic)
+        except ValueError as e:
+            print(f"Error generating topic '{topic}': {e}")
+        except anthropic.BadRequestError as e:
+            if e.message and "credit balance is too low" in e.message:
+                print(f"Buy API credits. Error details: {str(e)}")
+                break
+            print(str(e))
 
 
-def beHappy(topic: str):
-    message = client.messages.create(
-        model=model,
-        max_tokens=5000,
-        thinking={"type": "adaptive", "display": "summarized"},
-        messages=[
+def generate_topic(topic):
+    response = call_model(
+        [
             {
                 "role": "user",
                 "content": Template(PROMPT_V1).substitute(
@@ -111,7 +140,45 @@ def beHappy(topic: str):
             }
         ],
     )
-    #   print(message.model_dump_json(indent=2))
+    attempt = 0
+    while response.get("new_words_spacy_count") > NEW_WORD_BUDGET and attempt < 3:
+        print(
+            f"Attempt {attempt}: New words found ({response.get('new_words_spacy_count')}) exceeds the budget ({NEW_WORD_BUDGET}). Retrying..."
+        )
+        response = call_model(
+            [
+                {
+                    "role": "user",
+                    "content": Template(PROMPT_REPAIR).substitute(
+                        word_list=",".join(words_to_generate_from),
+                        offending_words=",".join(response.get("new_words_spacy")),
+                        previous_text=response.get("response")
+                        .get("content")
+                        .get("text"),
+                        SCHEMA=SCHEMA,
+                    ),
+                }
+            ]
+        )
+        attempt += 1
+
+    if response.get("new_words_spacy_count") > NEW_WORD_BUDGET:
+        print(
+            f"Failed to generate a paragraph within the new word budget after {attempt} attempts."
+        )
+    print(f"New words found: {response.get('new_words_spacy')}")
+    response["attempts"] = attempt
+    response["converged"] = response.get("new_words_spacy_count") <= NEW_WORD_BUDGET
+    save_json_to_file(response, "output.json")
+
+
+def call_model(messages: list[dict[str, str]]) -> dict[str, any]:
+    message = client.messages.create(
+        model=model,
+        max_tokens=5000,
+        thinking={"type": "adaptive", "display": "summarized"},
+        messages=messages,
+    )
     try:
         for block in message.content:
             if block.type == "text":
@@ -119,14 +186,20 @@ def beHappy(topic: str):
                 print(f"{message.role}: {data}")
                 to_save = {"role": message.role, "content": data}
                 new_words = find_new_words(data.get(FIELD_TEXT), KNOWN_WORDS)
-                with_new_words = {"response": to_save, "new_words_spacy": list(new_words), "new_words_spacy_count": len(new_words)}
-                save_json_to_file(with_new_words, "output.json")
+                with_new_words = {
+                    "response": to_save,
+                    "new_words_spacy": list(new_words),
+                    "new_words_spacy_count": len(new_words),
+                }
+
+                return with_new_words
     except ValueError as e:
         err = {
             "type": "error",
             "message": str(e),
         }
-        print(f"Error: {err}")
+        raise ValueError(f"Error: {err}")
+
 
 def find_new_words(text: str | None, known: set[str]) -> set[str]:
     if not text:
@@ -139,8 +212,9 @@ def find_new_words(text: str | None, known: set[str]) -> set[str]:
             if lemma not in known and lemma not in FREE_WORDS:
                 pos = token.pos_
                 if pos in ["NOUN", "VERB", "ADJ", "ADV"]:
-                   new_words.add(lemma)
+                    new_words.add(lemma)
     return new_words
+
 
 def extract_json(text: str):
     i = text.find("{")
@@ -156,8 +230,6 @@ def validate_json(obj: dict):
         raise ValueError(f"Missing '{FIELD_TITLE}' field in the JSON object")
     if not obj.get(FIELD_TEXT):
         raise ValueError(f"Missing '{FIELD_TEXT}' field in the JSON object")
-    if not obj.get(FIELD_NEW_WORDS):
-        raise ValueError(f"Missing '{FIELD_NEW_WORDS}' field in the JSON object")
     NEW_WORDS = obj.get(FIELD_NEW_WORDS)
     if not isinstance(NEW_WORDS, list):
         print(f"NEW_WORDS: {NEW_WORDS}")
