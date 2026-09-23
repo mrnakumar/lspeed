@@ -228,6 +228,12 @@ tausend
 erst
 zweit
 dritt
+anderer
+zweiter
+dritter
+nächstes
+letzter
+erster
 
 # Particles
 auch
