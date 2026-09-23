@@ -141,10 +141,12 @@ def generate_topic(topic):
         ],
     )
     attempt = 0
+    history = []
     while response.get("new_words_spacy_count") > NEW_WORD_BUDGET and attempt < 3:
         print(
             f"Attempt {attempt}: New words found ({response.get('new_words_spacy_count')}) exceeds the budget ({NEW_WORD_BUDGET}). Retrying..."
         )
+        history.append(response)
         response = call_model(
             [
                 {
@@ -169,6 +171,7 @@ def generate_topic(topic):
     print(f"New words found: {response.get('new_words_spacy')}")
     response["attempts"] = attempt
     response["converged"] = response.get("new_words_spacy_count") <= NEW_WORD_BUDGET
+    response["history"] = history
     save_json_to_file(response, "output.json")
 
 
