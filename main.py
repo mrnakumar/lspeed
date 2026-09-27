@@ -1,9 +1,10 @@
 import json
 from dotenv import load_dotenv
 from string import Template
-import spacy
 from constants import *
 import llm
+import german
+import os
 
 load_dotenv()
 
@@ -85,40 +86,12 @@ topics = [
 ]
 
 
-FILE_FREE_WORDS = "free_words.txt"
-FILE_KNOWN_WORDS = "known_words.txt"
 NEW_WORD_BUDGET = 3
 
-
-def load_words(path: str) -> set:
-    with open(path, "r") as f:
-        return {
-            stripped
-            for line in f.readlines()
-            if ((stripped := line.strip()) and not stripped.startswith("#"))
-        }
-
-
-FREE_WORDS = {word.lower() for word in load_words(FILE_FREE_WORDS)}
-KNOWN_WORDS = {word.lower() for word in load_words(FILE_KNOWN_WORDS)}
-
-nlp = spacy.load("de_core_news_sm")
-import os
-
-
-def tokenize(text: str) -> list[dict[str, str | bool]]:
-    result = []
-    doc = nlp(text)
-    for token in doc:
-        result.append(
-            {
-                "lemma": token.lemma_.lower(),
-                "text": token.text,
-                "clickable": not (token.is_punct or token.is_space),
-                "ws": token.whitespace_,
-            }
-        )
-    return result
+FILE_FREE_WORDS = "free_words.txt"
+FILE_KNOWN_WORDS = "known_words.txt"
+FREE_WORDS = german.load_words(FILE_FREE_WORDS)
+KNOWN_WORDS = german.load_words(FILE_KNOWN_WORDS)
 
 
 def main():
@@ -183,28 +156,13 @@ def generate_topic(topic):
 
 def with_new_words(response: dict[str, any]) -> dict[str, any]:
     content = response["content"]
-    new_words = find_new_words(content.get(FIELD_TEXT), KNOWN_WORDS)
+    new_words = german.find_new_words(content.get(FIELD_TEXT), KNOWN_WORDS, FREE_WORDS)
     with_new_words = {
         "response": response,
         "new_words_spacy": list(new_words),
         "new_words_spacy_count": len(new_words),
     }
     return with_new_words
-
-
-def find_new_words(text: str | None, known: set[str]) -> set[str]:
-    if not text:
-        raise ValueError("Text is empty or None")
-    new_words = set()
-    doc = nlp(text)
-    for token in doc:
-        if not token.is_punct and not token.is_space:
-            lemma = token.lemma_.lower()
-            if lemma not in known and lemma not in FREE_WORDS:
-                pos = token.pos_
-                if pos in ["NOUN", "VERB", "ADJ", "ADV"]:
-                    new_words.add(lemma)
-    return new_words
 
 
 def save_json_to_file(data: dict, filename: str):
