@@ -2,6 +2,7 @@ import json
 from dotenv import load_dotenv
 from string import Template
 from constants import *
+from exceptions import ApiCreditLimitError, ApiError
 import llm
 import german
 import os
@@ -99,7 +100,10 @@ def main():
         topic = topics[i]
         try:
             generate_topic(topic)
-        except ValueError as e:
+        except ApiCreditLimitError as e:
+            print(f"Out of API credits: {e}")
+            break
+        except (ApiError, ValueError) as e:
             print(f"Error generating topic '{topic}': {e}")
 
 

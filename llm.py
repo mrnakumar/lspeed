@@ -1,8 +1,8 @@
 import anthropic
 import json
-from constants import *
+from constants import FIELD_TITLE, FIELD_TEXT, FIELD_WORD, FIELD_NEW_WORDS, FIELD_GLOSS
 from dotenv import load_dotenv
-
+from exceptions import ApiError, ApiCreditLimitError
 
 # FIXME: also loaded in main.py, load it only once
 load_dotenv()
@@ -12,35 +12,22 @@ model = "claude-opus-5"
 
 
 def call_model(messages: list[dict[str, str]]) -> dict[str, any]:
-    message = client.messages.create(
-        model=model,
-        max_tokens=5000,
-        thinking={"type": "adaptive", "display": "summarized"},
-        messages=messages,
-    )
     try:
+        message = client.messages.create(
+            model=model,
+            max_tokens=5000,
+            thinking={"type": "adaptive", "display": "summarized"},
+            messages=messages,
+        )
         for block in message.content:
             if block.type == "text":
                 data = validate_json(extract_json(block.text))
                 return {"role": message.role, "content": data}
-                # new_words = find_new_words(data.get(FIELD_TEXT), KNOWN_WORDS)
-                # with_new_words = {
-                #     "response": to_save,
-                #     "new_words_spacy": list(new_words),
-                #     "new_words_spacy_count": len(new_words),
-                # }
-
-                # return with_new_words
-    except ValueError as e:
-        err = {
-            "type": "error",
-            "message": str(e),
-        }
-        raise ValueError(f"Error: {err}")
+        raise ValueError("No text block in response")
     except anthropic.BadRequestError as e:
         if e.message and "credit balance is too low" in e.message:
-            errMsg = f"Buy API credits. Error details: {str(e)}"
-            raise err(errMsg)
+            raise ApiCreditLimitError(str(e)) from e
+        raise ApiError(str(e)) from e
 
 
 def extract_json(text: str):
