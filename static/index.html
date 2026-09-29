@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Lesen</title>
+<style>
+  body { font-family: Georgia, serif; font-size: 20px; line-height: 1.8;
+         max-width: 700px; margin: 60px auto; padding: 0 20px; }
+  .word { cursor: pointer; }
+  .word:hover { background: #ffe; }
+</style>
+</head>
+<body>
+<h1 id="title"></h1>
+<div id="text"></div>
+<script>
+fetch('/api/text').then(r => r.json()).then(data => {
+  document.getElementById('title').textContent = data.title;
+  const box = document.getElementById('text');
+  for (const t of data.tokens) {
+    if (t.clickable) {
+      const span = document.createElement('span');
+      span.className = 'word';
+      span.dataset.lemma = t.lemma;
+      span.textContent = t.text;
+      box.appendChild(span);
+    } else {
+      box.appendChild(document.createTextNode(t.text));
+    }
+    box.appendChild(document.createTextNode(t.ws));
+  }
+});
+</script>
+</body>
+</html>

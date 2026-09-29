@@ -1,8 +1,18 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+import json
+from constants import FILE_OUTPUT
+from german import tokenize
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
-@app.get("/", response_class=HTMLResponse)
-def read():
-    return "<h1>Hallo</h1>"
+@app.get("/api/text")
+def get_text():
+    with open(FILE_OUTPUT, "r") as f:
+        last_line = json.loads(f.readlines()[-1])
+    content = last_line["response"]["content"]
+    return {"title": content["title"], "tokens": tokenize(content["text"])}
+
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
