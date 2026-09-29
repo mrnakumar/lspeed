@@ -142,3 +142,42 @@ The backend returns JSON and the page renders it, so the frontend can be replace
 without touching the API. If a review screen later makes hand-written DOM updates
 painful, that's the signal to revisit — probably with something small rather than
 React.
+
+---
+
+## 011 — Personal tool first, money later
+
+The project has two goals: learning German, and moving from Java development into
+AI engineering. Both are served by building a tool the author actually uses;
+neither needs it to make money.
+
+The author passed telc B1 on vocabulary alone: about 4000 Goethe B1 words and 4000
+phrases as German–English audio, heard on walks, plus 40 hours of courses and a
+prep book. The result was a big vocabulary and a weak grasp of grammar. That gap
+is the target, so the next features are chosen by whether they help close it —
+grammar explained on the word you tapped, and audio that fits the walking habit
+that already works.
+
+The career goal decides the order. Evals come first: they are the skill AI
+engineering roles screen for most, and every later change to prompts or models
+should be measured rather than judged by feel. The grammar panel comes next
+because it serves both goals — it closes the grammar gap, and grounding the
+model's explanation in spaCy's analysis and checking it is a core pattern of
+the work.
+
+Making money is a hypothesis to test later, not a goal to build toward. The space
+is crowded (LingQ, Readle, Duolingo, plain ChatGPT), exact vocabulary control is
+easy to copy and not visible to a learner, and a solo developer's bottleneck is
+reaching users, not features. Commercial angles — teachers and language schools,
+exam prep, practice from class notes — are recorded in the README and parked
+until the tool has been used daily and helps.
+
+Moved into evals: a blind comparison of budgeted texts against plain "write at
+B1" texts. The German goal doesn't need it — for personal use the budget is one
+parameter and can be loosened or dropped at any time — but it makes a good eval
+case study: whether a constraint the code enforces produces a difference a
+reader can see.
+
+Rejected for now: a native iPad app. It adds a codebase and App Store overhead
+(see 001), few learners have an iPad and Pencil, and the web reader already works
+in Safari on iPad.

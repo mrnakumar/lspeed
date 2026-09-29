@@ -3,7 +3,8 @@
 A tool for learning German with AI-generated, vocabulary-controlled content — text
 tuned to what you already know, introducing only a few new words at a time.
 
-Built as a learning project, for German and for LLM application engineering.
+Built as a learning project with two goals: learning German, and moving from Java
+development into AI engineering. Its first user is its author — see decision 011.
 
 ## Why
 
@@ -45,6 +46,7 @@ attempt; the rest converge after a single repair.
 
 Not built yet:
 - Clicking a word does nothing yet — no gloss, no grammar panel, no known-set update
+- The known set is still a curated Goethe B1 list, which decision 008 rejects
 - No spaced repetition, no review queue
 - No persistence beyond flat files
 
@@ -77,8 +79,7 @@ Generate texts:
 
     uv run main.py
 
-Generates one text per entry in `topics` and appends each result to `output.json`
-as JSONL.
+Generates one text per entry in `topics` and appends each result to `output.jsonl`.
 
 Serve the reader:
 
@@ -88,25 +89,54 @@ Then open http://localhost:8000 — it renders the most recently generated text.
 
 ## Layout
 
-    main.py           prompt, API call, generation and repair loop, verification
+    main.py           prompts, generation and repair loop
+    llm.py            API call, JSON extraction and validation
+    german.py         spaCy: new-word detection, tokenizing, word-list loading
     app.py            FastAPI routes: tokenized text endpoint, static files
+    constants.py      JSON field names, output file name
+    exceptions.py     API error types
     static/           the reader page
-    known_words.txt   lemmas the learner knows
+    known_words.txt   lemmas the learner knows (curated for now, see 008)
     free_words.txt    function words, exempt from the budget
-    output.json       generated texts, one JSON object per line
+    output.jsonl      generated texts, one JSON object per line
 
 ## Direction
 
-Not commitments, just where this could go, roughly in order:
+Built for the author's own German first (decision 011). The gap to close is
+grammar, not vocabulary.
 
-- Clicking a word: gloss, gender and plural for nouns, case and agreement from
-  spaCy's morphological features
-- Known words built from what the learner taps, replacing the curated list
-- Spaced repetition (FSRS) over the words collected that way
-- Grounding texts in real news on topics the learner cares about
-- Audio and listening practice
-- Conversation with corrective feedback
-- Pronunciation feedback
+Next, in order:
+
+1. **Evals.** A fixed set of topics and budgets, a runner that records first-try
+   pass rate, repairs, convergence, tokens, cost, and latency per case, and a
+   comparison between runs — so every later change to prompts or models is
+   measured rather than judged by feel.
+2. **Grammar on tap.** Clicking a word shows case, gender, number, and why it has
+   that form — `dem` after `mit` because `mit` takes the dative. The explanation is
+   grounded in spaCy's morphological features and checked against them, plus a
+   gloss.
+3. **Seed the known set from phrases.** Run ~4000 Goethe B1 example phrases through
+   spaCy once and keep the lemmas. Phrases are sentences, so the lemmas come out in
+   context, the same way verification produces them, and they include the basic
+   words (`sein`, `haben`, `fahren`) the B1 word list lacks. Replaces the curated
+   `known_words.txt`; taps adjust it from there. Untested — becomes a decision once
+   it works.
+4. **Deploy and audio.** A hosted version with a real database, logging and cost
+   tracking for every model call, so it works on a phone — then text-to-speech for
+   each generated text, to listen to while walking.
+
+Then read with it daily for two weeks and let that decide what comes after.
+
+Later, not yet planned:
+- Spaced repetition (FSRS) over tapped words
+- Raising the level to B2, where the budget meters B2 vocabulary
+- Texts grounded in real news on topics the learner cares about
+- Practice generated from photos or PDFs of class notes
+- Conversation and pronunciation feedback
+
+Parked until the tool proves itself in daily use: anything commercial — teachers
+and language schools, B1 exam prep, a native iPad app, handwritten answers with
+Apple Pencil.
 
 ## Decisions
 
