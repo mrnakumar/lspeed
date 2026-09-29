@@ -1,7 +1,14 @@
 import json
 from dotenv import load_dotenv
 from string import Template
-from constants import *
+from constants import (
+    FIELD_TITLE,
+    FIELD_TEXT,
+    FIELD_NEW_WORDS,
+    FIELD_WORD,
+    FIELD_GLOSS,
+    FILE_OUTPUT,
+)
 from exceptions import ApiCreditLimitError, ApiError
 import llm
 import german
@@ -155,7 +162,7 @@ def generate_topic(topic):
     response["attempts"] = attempt
     response["converged"] = response.get("new_words_spacy_count") <= NEW_WORD_BUDGET
     response["history"] = history
-    save_json_to_file(response, "output.json")
+    save_json_to_file(response, FILE_OUTPUT)
 
 
 def with_new_words(response: dict[str, any]) -> dict[str, any]:
