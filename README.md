@@ -1,72 +1,69 @@
 # lspeed
 
-A tool for learning German with AI-generated, vocabulary-controlled content — text
-tuned to what you already know, introducing only a few new words at a time.
+A German reader where tapping any word explains its grammar — case, gender,
+number, and *why* it has that form. Explanations are written by an LLM, grounded
+in spaCy's analysis of the sentence, and checked against it.
 
 Built as a learning project with two goals: learning German, and moving from Java
-development into AI engineering. Its first user is its author — see decision 011.
+development into AI engineering. Its first user is its author — see decisions 011
+and 012.
 
 ## Why
 
-Most language apps either give you fixed content at a fixed level, or authentic
-material that's far above your level. Neither adapts to the vocabulary you
-personally know. An LLM can generate material calibrated to an individual
-learner's word list — that's the idea being tested here.
+Vocabulary is the easy half of German. Lists, audio, and spaced repetition get a
+learner to thousands of words. Grammar is the hard half: why it's `dem` and not
+`der` after `mit`, why the adjective ends in `-en` here and `-e` there, where the
+verb goes. Textbooks teach those rules in isolation; reading is where they
+actually show up.
+
+The idea: read any German text, and when a form doesn't make sense, tap it and get
+the reason — for that word, in that sentence.
 
 ## Example
 
-Topic: *Meine Nachbarn*. Budget: 3 new content words.
+Tapping `dem` in *Ich fahre mit dem Bus*:
 
-> In meiner Straße in der Stadt wohnen viele freundliche Nachbarn. Neben meinem
-> Haus lebt eine Familie mit zwei Kindern, einem Hund und einer Katze. Im Garten
-> vor ihrem Haus steht ein großer Baum. Die Katze ist oft auf dem Baum, und der
-> Hund ist im Garten. Am Wochenende wäscht mein Nachbar sein Auto auf der Straße,
-> und wir sprechen dann über die Stadt, über den Garten und über unsere Familien.
+> **dem** — dative, masculine, singular. Article of *Bus* (der Bus).
+> Dative because *mit* always takes the dative.
 
-The first attempt used nine words outside the known set. One targeted rewrite
-brought it to zero.
+spaCy supplies the facts (`Case=Dat`, `Gender=Masc`, `Number=Sing`, head `Bus`,
+governed by `mit`). The model turns them into an explanation and names the rule.
+Code then checks that the explanation states the same case, gender, and number
+spaCy found.
 
 ## Status
 
-Early but running end to end: generation, verification, repair, and a reader that
-renders the result in a browser.
+Early. The reader exists; the grammar explanations don't yet.
 
 Working:
-- Generates a B1-level German paragraph on a given topic via the Anthropic API
-- Takes a known-word list and a budget for new content words
-- Verifies the result by lemmatizing it with spaCy and comparing against the known set
-- Repairs violations with a targeted rewrite, up to three attempts, keeping the
-  history of each attempt
-- Returns structured JSON (title, text, new words with English glosses) and
-  validates its shape
-- Serves a tokenized text over a JSON API and renders it as clickable words
-
-At a budget of three new words, roughly three texts in five pass on the first
-attempt; the rest converge after a single repair.
+- A FastAPI endpoint that tokenizes a text with spaCy and returns each token with
+  its lemma
+- A reader page that renders the text as tappable words — every word except
+  punctuation (decision 009)
+- A generator from the first version of the project (see History) that produces
+  B1 texts on a topic, which is currently the only source of text for the reader
 
 Not built yet:
-- Clicking a word does nothing yet — no gloss, no grammar panel, no known-set update
-- The known set is still a curated Goethe B1 list, which decision 008 rejects
-- No spaced repetition, no review queue
-- No persistence beyond flat files
+- Tapping a word does nothing yet
+- No way to read your own text — paste or URL
+- No evals
 
 ## How it works
 
-The model receives a list of known words, a topic, and a budget for new content
-words. Function words (articles, pronouns, prepositions, conjunctions, auxiliaries,
-modals, particles) don't count against the budget — a learner at this level already
-knows them.
+The design, carried over from the first version, is **the model writes, the code
+checks**. A model explaining grammar will sometimes state the wrong case or invent
+a rule. spaCy's morphological analysis is exact about what it reports, so it serves
+as both the input to the explanation and the check on it:
 
-Prompting alone can't reliably enforce a vocabulary budget: a model has no
-dependable access to which words it just produced, and can't count them while also
-writing coherent prose. So the design is **generate → verify in code → repair on
-violation**. Verification lemmatizes the output with spaCy and takes a set
-difference against the known words. A violation triggers a rewrite naming the
-specific offending words.
+1. spaCy parses the sentence: lemma, part of speech, case, gender, number, tense,
+   and the word each token depends on.
+2. The tapped token's analysis and the sentence go to the model, which returns
+   structured JSON: the facts, the rule, and a short explanation.
+3. Code compares the facts in the explanation with spaCy's. A mismatch triggers a
+   retry or flags the explanation.
 
-This gap is measurable. The model's own list of "new words" routinely disagrees
-with what verification finds — it reports words the learner already knows, and
-misses words it actually introduced. The model writes; the code decides.
+spaCy is not always right either. Disagreements between the two are logged and
+reviewed — deciding which source to trust is part of the work.
 
 ## Running it
 
@@ -75,68 +72,72 @@ spaCy model:
 
     uv run python -m spacy download de_core_news_sm
 
-Generate texts:
-
-    uv run main.py
-
-Generates one text per entry in `topics` and appends each result to `output.jsonl`.
-
 Serve the reader:
 
     uv run uvicorn app:app --reload
 
-Then open http://localhost:8000 — it renders the most recently generated text.
+Then open http://localhost:8000 — it renders the most recently generated text
+from `output.jsonl`.
+
+Generate a text (see History):
+
+    uv run main.py
 
 ## Layout
 
-    main.py           prompts, generation and repair loop
-    llm.py            API call, JSON extraction and validation
-    german.py         spaCy: new-word detection, tokenizing, word-list loading
     app.py            FastAPI routes: tokenized text endpoint, static files
+    german.py         spaCy: tokenizing, new-word detection, word-list loading
+    static/           the reader page
+    main.py           text generator from the first version: prompts, repair loop
+    llm.py            API call, JSON extraction and validation
     constants.py      JSON field names, output file name
     exceptions.py     API error types
-    static/           the reader page
-    known_words.txt   lemmas the learner knows (curated for now, see 008)
-    free_words.txt    function words, exempt from the budget
+    known_words.txt   first version: curated known-word list (see 008)
+    free_words.txt    first version: function words exempt from the budget
     output.jsonl      generated texts, one JSON object per line
 
 ## Direction
 
-Built for the author's own German first (decision 011). The gap to close is
-grammar, not vocabulary.
+Each step teaches one AI engineering skill and closes part of the grammar gap
+(decision 012). Steps are added when the previous one shows a reason for them.
 
-Next, in order:
+1. **Grammar on tap.** Tap → spaCy analysis → model explanation as structured JSON
+   → check against spaCy. Plus pasting your own text into the reader.
+2. **Evals.** A hand-labelled gold set of tapped words, exact checks of
+   case/gender/number against spaCy, an LLM judge for whether the stated rule is
+   true, and comparisons across prompts and models — including whether a small,
+   fast model is good enough, since someone is waiting on every tap.
+3. **Grounding in a grammar reference.** Retrieve the relevant rule (two-way
+   prepositions, adjective endings) and cite it — once evals show the model
+   stating wrong rules. Retrieval gets its own eval.
+4. **Practice.** Sentences that exercise the grammar points tapped most often,
+   generated and checked by spaCy to contain that structure; answers graded by a
+   model.
+5. **A tutor with tools.** spaCy analysis, dictionary lookup, grammar-rule search —
+   for follow-up questions like "but why not `der`?"
 
-1. **Evals.** A fixed set of topics and budgets, a runner that records first-try
-   pass rate, repairs, convergence, tokens, cost, and latency per case, and a
-   comparison between runs — so every later change to prompts or models is
-   measured rather than judged by feel.
-2. **Grammar on tap.** Clicking a word shows case, gender, number, and why it has
-   that form — `dem` after `mit` because `mit` takes the dative. The explanation is
-   grounded in spaCy's morphological features and checked against them, plus a
-   gloss.
-3. **Seed the known set from phrases.** Run ~4000 Goethe B1 example phrases through
-   spaCy once and keep the lemmas. Phrases are sentences, so the lemmas come out in
-   context, the same way verification produces them, and they include the basic
-   words (`sein`, `haben`, `fahren`) the B1 word list lacks. Replaces the curated
-   `known_words.txt`; taps adjust it from there. Untested — becomes a decision once
-   it works.
-4. **Deploy and audio.** A hosted version with a real database, logging and cost
-   tracking for every model call, so it works on a phone — then text-to-speech for
-   each generated text, to listen to while walking.
+Later, not yet planned: deploying it with a database and per-call cost tracking;
+audio of texts for listening on walks; spaced repetition over tapped words.
 
-Then read with it daily for two weeks and let that decide what comes after.
+Parked: anything commercial (decision 011).
 
-Later, not yet planned:
-- Spaced repetition (FSRS) over tapped words
-- Raising the level to B2, where the budget meters B2 vocabulary
-- Texts grounded in real news on topics the learner cares about
-- Practice generated from photos or PDFs of class notes
-- Conversation and pronunciation feedback
+## History
 
-Parked until the tool proves itself in daily use: anything commercial — teachers
-and language schools, B1 exam prep, a native iPad app, handwritten answers with
-Apple Pencil.
+The first version generated vocabulary-controlled texts: a B1 paragraph on a topic
+using at most N words outside the learner's known set, verified by lemmatizing with
+spaCy and repaired with a targeted rewrite on violation. Roughly three texts in five
+passed on the first attempt; the rest converged after one repair.
+
+It was set aside because it controlled vocabulary, which the author already had,
+rather than grammar, which they didn't — and because it depended on an accurate
+list of known words, which proved hard to build (decision 008). The generator still
+runs and feeds the reader; the reasons it was set aside are in decision 012.
+
+One observation from that version needs a correction. The model's own list of new
+words routinely disagreed with spaCy's, which was first read as evidence that a
+model can't track the words it produces. But the model was given a 10-word list
+while spaCy checked against about 2,000 known words, so the disagreement was built
+in. Whether a model can track its own vocabulary was never fairly measured.
 
 ## Decisions
 

@@ -181,3 +181,51 @@ reader can see.
 Rejected for now: a native iPad app. It adds a codebase and App Store overhead
 (see 001), few learners have an iPad and Pencil, and the web reader already works
 in Safari on iPad.
+
+---
+
+## 012 — A grammar reader, not a vocabulary-controlled generator
+
+The first version generated texts with at most N words outside the learner's known
+set. It worked — about three in five texts passed first time, the rest after one
+repair — but it was aimed at the wrong problem.
+
+The author knows about 4000 words; the gap is grammar (011). At that vocabulary,
+most B1 texts, real ones included, already stay within a small budget of unknown
+words. The budget was solving a problem the learner didn't have, at real cost:
+
+- It rests on an accurate list of the learner's known words, and that list is hard
+  to build (008). Every fix — seeding from phrases, building it from taps — is a
+  workaround for that.
+- Constraining which words the model may use makes the German stiffer.
+- The model was judged against a list it never saw. It was given 10 words; spaCy
+  checked against about 2,000. Giving it the full list would have made the check
+  fair, but would not have changed what the tool teaches.
+
+So the core becomes reading with grammar on tap. Any text can be read — pasted,
+fetched, or generated. Tapping a word gives its case, gender, number, and the rule
+behind the form, for that word in that sentence.
+
+The pattern from 003 carries over, and is better motivated here. spaCy's analysis
+goes to the model as the facts; the model writes the explanation; code checks the
+explanation's facts against spaCy's. The model is now checked against exactly the
+information it was given. And spaCy can be wrong too, so disagreements are logged
+and reviewed rather than resolved automatically in spaCy's favour.
+
+This also serves the career goal better. Explanations need structured output and
+checks in code; their correctness is measurable against spaCy and a hand-labelled
+gold set; a tap is interactive, so latency and model size matter; wrong rules give
+a reason to ground explanations in a grammar reference; follow-up questions give a
+reason for a tutor with tools. Each is added when the previous step shows the need,
+not to fill a CV.
+
+Changes to 011: the order is now grammar on tap first, then evals, since there is
+nothing to evaluate until explanations exist. The planned comparison of budgeted
+against unbudgeted texts is dropped.
+
+Kept: the generator, as one source of text for the reader; tokenizing with spaCy;
+the reader page; "everything is tappable" (009).
+
+Dropped or deferred: seeding the known set from Goethe phrases; requiring texts to
+use specific target words; the known-word budget as a goal. 004–008 describe the
+first version and stay as a record of it.
