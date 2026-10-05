@@ -40,8 +40,8 @@ Working:
   its lemma
 - A reader page that renders the text as tappable words — every word except
   punctuation (decision 009)
-- A generator from the first version of the project (see History) that produces
-  B1 texts on a topic, which is currently the only source of text for the reader
+- A generator that writes a B1 text on a topic — what's left of the first
+  version (see History), and currently the only source of text for the reader
 
 Not built yet:
 - Tapping a word does nothing yet
@@ -86,14 +86,12 @@ Generate a text (see History):
 ## Layout
 
     app.py            FastAPI routes: tokenized text endpoint, static files
-    german.py         spaCy: tokenizing, new-word detection, word-list loading
+    german.py         spaCy: tokenizing
     static/           the reader page
-    main.py           text generator from the first version: prompts, repair loop
+    main.py           text generator: prompt, topics
     llm.py            API call, JSON extraction and validation
     constants.py      JSON field names, output file name
     exceptions.py     API error types
-    known_words.txt   first version: curated known-word list (see 008)
-    free_words.txt    first version: function words exempt from the budget
     output.jsonl      generated texts, one JSON object per line
 
 ## Direction
@@ -130,8 +128,10 @@ passed on the first attempt; the rest converged after one repair.
 
 It was set aside because it controlled vocabulary, which the author already had,
 rather than grammar, which they didn't — and because it depended on an accurate
-list of known words, which proved hard to build (decision 008). The generator still
-runs and feeds the reader; the reasons it was set aside are in decision 012.
+list of known words, which proved hard to build (decision 008). The reasons it was
+set aside are in decision 012. The budget, repair loop, and word lists have been
+removed (they remain in git history); the generator now writes a plain B1 text on a
+topic and feeds the reader.
 
 One observation from that version needs a correction. The model's own list of new
 words routinely disagreed with spaCy's, which was first read as evidence that a

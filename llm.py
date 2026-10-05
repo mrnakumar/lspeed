@@ -1,6 +1,6 @@
 import anthropic
 import json
-from constants import FIELD_TITLE, FIELD_TEXT, FIELD_WORD, FIELD_NEW_WORDS, FIELD_GLOSS
+from constants import FIELD_TITLE, FIELD_TEXT
 from dotenv import load_dotenv
 from exceptions import ApiError, ApiCreditLimitError
 
@@ -44,22 +44,7 @@ def validate_json(obj: dict):
         raise ValueError(f"Missing '{FIELD_TITLE}' field in the JSON object")
     if not obj.get(FIELD_TEXT):
         raise ValueError(f"Missing '{FIELD_TEXT}' field in the JSON object")
-    NEW_WORDS = obj.get(FIELD_NEW_WORDS)
-    if not isinstance(NEW_WORDS, list):
-        print(f"NEW_WORDS: {NEW_WORDS}")
-        raise ValueError(f"'{FIELD_NEW_WORDS}' field must be a list")
-    for e in NEW_WORDS:
-        if not isinstance(e, dict):
-            raise ValueError(
-                f"Each element in '{FIELD_NEW_WORDS}' must be a dictionary"
-            )
-        if not e.get(FIELD_WORD):
-            raise ValueError(f"Missing '{FIELD_WORD}' field in the new word object")
-        if not e.get(FIELD_GLOSS):
-            raise ValueError(f"Missing '{FIELD_GLOSS}' field in the new word object")
-
     return {
         FIELD_TITLE: obj[FIELD_TITLE],
         FIELD_TEXT: obj[FIELD_TEXT],
-        FIELD_NEW_WORDS: obj[FIELD_NEW_WORDS],
     }
