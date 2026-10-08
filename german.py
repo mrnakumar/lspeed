@@ -10,7 +10,11 @@ def tokenize(text: str) -> list[dict[str, str | bool]]:
     for token in doc:
         result.append(
             {
+                "i": token.i,
                 "lemma": token.lemma_.lower(),
+                "pos": token.pos_,
+                "morph": token.morph.to_dict(),
+                "head": token.head.i,
                 "text": token.text,
                 "clickable": not (token.is_punct or token.is_space),
                 "ws": token.whitespace_,

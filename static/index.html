@@ -3,23 +3,38 @@
 <head><meta charset="utf-8"><title>Lesen</title>
 <style>
   body { font-family: Georgia, serif; font-size: 20px; line-height: 1.8;
-         max-width: 700px; margin: 60px auto; padding: 0 20px; }
+         max-width: 700px; margin: 60px auto 220px; padding: 0 20px; }
   .word { cursor: pointer; }
   .word:hover { background: #ffe; }
+  .word.selected { background: #fe8; }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; background: #f6f6f6;
+           border-top: 1px solid #ccc; font-family: sans-serif; font-size: 16px;
+           line-height: 1.5; padding: 12px 20px; display: none; }
+  #panel .inner { max-width: 700px; margin: 0 auto; }
+  #panel .word-text { font-size: 22px; font-weight: bold; }
+  #panel dl { display: grid; grid-template-columns: max-content 1fr;
+              gap: 2px 12px; margin: 8px 0 0; }
+  #panel dt { color: #666; }
+  #panel dd { margin: 0; }
 </style>
 </head>
 <body>
 <h1 id="title"></h1>
 <div id="text"></div>
+<div id="panel"><div class="inner"></div></div>
 <script>
+let tokens = [];
+let selected = null;
+
 fetch('/api/text').then(r => r.json()).then(data => {
+  tokens = data.tokens;
   document.getElementById('title').textContent = data.title;
   const box = document.getElementById('text');
-  for (const t of data.tokens) {
+  for (const t of tokens) {
     if (t.clickable) {
       const span = document.createElement('span');
       span.className = 'word';
-      span.dataset.lemma = t.lemma;
+      span.dataset.i = t.i;
       span.textContent = t.text;
       box.appendChild(span);
     } else {
@@ -28,6 +43,37 @@ fetch('/api/text').then(r => r.json()).then(data => {
     box.appendChild(document.createTextNode(t.ws));
   }
 });
+
+document.getElementById('text').addEventListener('click', e => {
+  const span = e.target.closest('.word');
+  if (!span) return;
+  if (selected) selected.classList.remove('selected');
+  selected = span;
+  span.classList.add('selected');
+  showFacts(tokens[span.dataset.i]);
+});
+
+function showFacts(t) {
+  const rows = [['Lemma', t.lemma], ['Part of speech', t.pos]];
+  for (const [k, v] of Object.entries(t.morph)) rows.push([k, v]);
+  if (t.head !== t.i) rows.push(['Belongs to', tokens[t.head].text]);
+
+  const inner = document.querySelector('#panel .inner');
+  inner.replaceChildren();
+  const title = document.createElement('div');
+  title.className = 'word-text';
+  title.textContent = t.text;
+  const dl = document.createElement('dl');
+  for (const [k, v] of rows) {
+    const dt = document.createElement('dt');
+    dt.textContent = k;
+    const dd = document.createElement('dd');
+    dd.textContent = v;
+    dl.append(dt, dd);
+  }
+  inner.append(title, dl);
+  document.getElementById('panel').style.display = 'block';
+}
 </script>
 </body>
 </html>
