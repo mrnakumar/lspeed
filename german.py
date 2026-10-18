@@ -21,3 +21,15 @@ def tokenize(text: str) -> list[dict[str, str | bool]]:
             }
         )
     return result
+
+
+def mark_word(text: str, i: int) -> str:
+    doc = nlp(text)
+    if not 0 <= i < len(doc):
+        raise ValueError(f"Token index {i} out of range")
+    token = doc[i]
+    if token.is_punct or token.is_space:
+        raise ValueError(f"Token {i} ({token.text!r}) is not a word")
+    start = token.idx
+    end = start + len(token.text)
+    return f"{text[:start]}[{token.text}]{text[end:]}"

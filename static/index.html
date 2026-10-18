@@ -23,10 +23,12 @@
 <div id="text"></div>
 <div id="panel"><div class="inner"></div></div>
 <script>
+let text = '';
 let tokens = [];
 let selected = null;
 
 fetch('/api/text').then(r => r.json()).then(data => {
+  text = data.text;
   tokens = data.tokens;
   document.getElementById('title').textContent = data.title;
   const box = document.getElementById('text');
