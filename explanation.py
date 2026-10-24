@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Literal
 from string import Template
+import llm
 
 
 class Explanation(BaseModel):
@@ -34,3 +35,8 @@ Fill in the fields as follows:
 Text:
 $marked_text
 """
+
+
+def explain(marked_text: str) -> Explanation:
+    prompt = Template(PROMPT_EXPLAIN).substitute(marked_text=marked_text)
+    return llm.parse([{"role": "user", "content": prompt}], output_type=Explanation)

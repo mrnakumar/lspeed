@@ -1,5 +1,8 @@
 import anthropic
 import json
+import time
+
+from pydantic import BaseModel
 from constants import FIELD_TITLE, FIELD_TEXT
 from dotenv import load_dotenv
 from exceptions import ApiError, ApiCreditLimitError
@@ -9,13 +12,14 @@ load_dotenv()
 
 client = anthropic.Anthropic()
 model = "claude-opus-5"
+max_tokens = 5000
 
 
 def call_model(messages: list[dict[str, str]]) -> dict[str, any]:
     try:
         message = client.messages.create(
             model=model,
-            max_tokens=5000,
+            max_tokens=max_tokens,
             thinking={"type": "adaptive", "display": "summarized"},
             messages=messages,
         )
@@ -28,6 +32,32 @@ def call_model(messages: list[dict[str, str]]) -> dict[str, any]:
         if e.message and "credit balance is too low" in e.message:
             raise ApiCreditLimitError(str(e)) from e
         raise ApiError(str(e)) from e
+
+
+def parse[T: BaseModel](
+    messages: list[dict], output_type: type[T], model: str = model
+) -> T:
+    start = time.perf_counter()
+    try:
+        response = client.messages.parse(
+            model=model,
+            max_tokens=max_tokens,
+            thinking={"type": "adaptive", "display": "summarized"},
+            messages=messages,
+            output_format=output_type,
+        )
+    except anthropic.BadRequestError as e:
+        if e.message and "credit balance is too low" in e.message:
+            raise ApiCreditLimitError(str(e)) from e
+        raise ApiError(str(e)) from e
+    except anthropic.APIError as e:
+        raise ApiError(str(e)) from e
+    print(f"{model} took {time.perf_counter() - start:.1f}s")
+    if response.stop_reason != "end_turn" or response.parsed_output is None:
+        raise ApiError(
+            f"No {output_type.__name__} returned (stop_reason: {response.stop_reason})"
+        )
+    return response.parsed_output
 
 
 def extract_json(text: str):

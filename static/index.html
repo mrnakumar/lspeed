@@ -16,6 +16,10 @@
               gap: 2px 12px; margin: 8px 0 0; }
   #panel dt { color: #666; }
   #panel dd { margin: 0; }
+  #panel .model { margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd; }
+  #panel .model .status { color: #666; font-style: italic; }
+  #panel .model .error { color: #b00; }
+  #panel .model p { margin: 4px 0; }
 </style>
 </head>
 <body>
@@ -26,6 +30,7 @@
 let text = '';
 let tokens = [];
 let selected = null;
+let requestId = 0;
 
 fetch('/api/text').then(r => r.json()).then(data => {
   text = data.text;
@@ -52,8 +57,49 @@ document.getElementById('text').addEventListener('click', e => {
   if (selected) selected.classList.remove('selected');
   selected = span;
   span.classList.add('selected');
-  showFacts(tokens[span.dataset.i]);
+  const t = tokens[span.dataset.i];
+  showFacts(t);
+  explainWord(t.i);
 });
+
+function explainWord(i) {
+  // Only the latest tap's answer is shown; an earlier one arriving late is ignored.
+  const id = ++requestId;
+  setModel(el('p', 'Explaining…', 'status'));
+  fetch('/api/explain', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text, i}),
+  })
+    .then(r => r.json().then(data => {
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      return data;
+    }))
+    .then(e => { if (id === requestId) showExplanation(e); })
+    .catch(err => {
+      if (id === requestId) setModel(el('p', 'Could not explain: ' + err.message, 'error'));
+    });
+}
+
+function showExplanation(e) {
+  const facts = [e.case, e.gender, e.number].filter(Boolean).join(' · ');
+  const parts = [el('p', e.explanation)];
+  if (e.rule) parts.push(el('p', 'Rule: ' + e.rule));
+  if (e.governed_by) parts.push(el('p', 'Caused by: ' + e.governed_by));
+  if (facts) parts.push(el('p', 'Model says: ' + facts, 'status'));
+  setModel(...parts);
+}
+
+function setModel(...children) {
+  document.querySelector('#panel .model').replaceChildren(...children);
+}
+
+function el(tag, text, className) {
+  const node = document.createElement(tag);
+  node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
 
 function showFacts(t) {
   const rows = [['Lemma', t.lemma], ['Part of speech', t.pos]];
@@ -73,7 +119,9 @@ function showFacts(t) {
     dd.textContent = v;
     dl.append(dt, dd);
   }
-  inner.append(title, dl);
+  const model = document.createElement('div');
+  model.className = 'model';
+  inner.append(title, dl, model);
   document.getElementById('panel').style.display = 'block';
 }
 </script>
