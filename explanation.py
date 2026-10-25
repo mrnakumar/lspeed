@@ -40,3 +40,12 @@ $marked_text
 def explain(marked_text: str) -> Explanation:
     prompt = Template(PROMPT_EXPLAIN).substitute(marked_text=marked_text)
     return llm.parse([{"role": "user", "content": prompt}], output_type=Explanation)
+
+
+def compare(explanation: Explanation, facts: dict[str, str | None]) -> list[str]:
+    """Names of the fields where the model and spaCy disagree. Both None agrees."""
+    return [
+        field
+        for field, spacy_value in facts.items()
+        if getattr(explanation, field) != spacy_value
+    ]

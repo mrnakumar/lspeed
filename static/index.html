@@ -18,7 +18,7 @@
   #panel dd { margin: 0; }
   #panel .model { margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd; }
   #panel .model .status { color: #666; font-style: italic; }
-  #panel .model .error { color: #b00; }
+  #panel .model .error, #panel .mismatch { color: #b00; }
   #panel .model p { margin: 4px 0; }
 </style>
 </head>
@@ -82,12 +82,28 @@ function explainWord(i) {
 }
 
 function showExplanation(e) {
-  const facts = [e.case, e.gender, e.number].filter(Boolean).join(' · ');
   const parts = [el('p', e.explanation)];
   if (e.rule) parts.push(el('p', 'Rule: ' + e.rule));
   if (e.governed_by) parts.push(el('p', 'Caused by: ' + e.governed_by));
-  if (facts) parts.push(el('p', 'Model says: ' + facts, 'status'));
+  const facts = modelFacts(e);
+  if (facts) parts.push(facts);
+  if (e.mismatches.length) {
+    parts.push(el('p', 'Disagrees with spaCy on: ' + e.mismatches.join(', '), 'mismatch'));
+  }
   setModel(...parts);
+}
+
+// "Model says: Dat · Fem · Sing", with values that disagree with spaCy in red.
+// A field the model left empty is shown as "no case" only when it disagrees.
+function modelFacts(e) {
+  const shown = ['case', 'gender', 'number'].filter(f => e[f] || e.mismatches.includes(f));
+  if (!shown.length) return null;
+  const p = el('p', 'Model says: ', 'status');
+  shown.forEach((f, n) => {
+    if (n) p.append(' · ');
+    p.append(el('span', e[f] || 'no ' + f, e.mismatches.includes(f) ? 'mismatch' : ''));
+  });
+  return p;
 }
 
 function setModel(...children) {
