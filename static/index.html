@@ -4,7 +4,14 @@
 <style>
   body { font-family: Georgia, serif; font-size: 20px; line-height: 1.8;
          max-width: 700px; margin: 60px auto; padding: 0 20px; }
+  #text { white-space: pre-wrap; }
   .word { cursor: pointer; }
+  #paste { font-family: sans-serif; font-size: 16px; margin-bottom: 24px; }
+  #paste summary { cursor: pointer; color: #555; }
+  #paste textarea { display: block; box-sizing: border-box; width: 100%;
+                    margin: 8px 0; font: 16px/1.5 Georgia, serif; padding: 8px; }
+  #paste button { font-size: 15px; padding: 4px 12px; margin-right: 8px; }
+  #paste .error { color: #b00; }
   .word:hover { background: #ffe; }
   .word.selected { background: #fe8; }
   /* Narrow windows: a bottom sheet that scrolls itself and never takes more
@@ -38,6 +45,13 @@
 <body>
 <div id="layout">
   <main>
+    <details id="paste">
+      <summary>Paste your own text</summary>
+      <textarea id="paste-text" rows="8" placeholder="Paste German text here"></textarea>
+      <button id="read">Read</button>
+      <button id="generated">Back to the generated text</button>
+      <p class="error" id="paste-error"></p>
+    </details>
     <h1 id="title"></h1>
     <div id="text"></div>
   </main>
@@ -49,11 +63,64 @@ let tokens = [];
 let selected = null;
 let requestId = 0;
 
-fetch('/api/text').then(r => r.json()).then(data => {
+// The last pasted text is kept in this browser only, so a reload doesn't lose it.
+const PASTED_KEY = 'lspeed.pastedText';
+const storage = {
+  get() { try { return localStorage.getItem(PASTED_KEY); } catch { return null; } },
+  set(v) { try { localStorage.setItem(PASTED_KEY, v); } catch {} },
+  clear() { try { localStorage.removeItem(PASTED_KEY); } catch {} },
+};
+
+function loadGenerated() {
+  return fetch('/api/text').then(r => r.json()).then(data => render(data.title, data));
+}
+
+function loadPasted(raw) {
+  return fetch('/api/tokenize', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: raw}),
+  })
+    .then(r => r.json().then(data => {
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      return data;
+    }))
+    .then(data => {
+      storage.set(data.text);
+      render('Your text', data);
+    });
+}
+
+const saved = storage.get();
+if (saved) {
+  document.getElementById('paste-text').value = saved;
+  loadPasted(saved).catch(loadGenerated);
+} else {
+  loadGenerated();
+}
+
+const pasteError = document.getElementById('paste-error');
+document.getElementById('read').addEventListener('click', () => {
+  pasteError.textContent = '';
+  loadPasted(document.getElementById('paste-text').value)
+    .then(() => { document.getElementById('paste').open = false; })
+    .catch(err => { pasteError.textContent = 'Could not read the text: ' + err.message; });
+});
+document.getElementById('generated').addEventListener('click', () => {
+  storage.clear();
+  pasteError.textContent = '';
+  document.getElementById('paste-text').value = '';
+  document.getElementById('paste').open = false;
+  loadGenerated();
+});
+
+function render(title, data) {
+  closePanel();
   text = data.text;
   tokens = data.tokens;
-  document.getElementById('title').textContent = data.title;
+  document.getElementById('title').textContent = title;
   const box = document.getElementById('text');
+  box.replaceChildren();
   for (const t of tokens) {
     if (t.clickable) {
       const span = document.createElement('span');
@@ -66,7 +133,7 @@ fetch('/api/text').then(r => r.json()).then(data => {
     }
     box.appendChild(document.createTextNode(t.ws));
   }
-});
+}
 
 document.getElementById('text').addEventListener('click', e => {
   const span = e.target.closest('.word');

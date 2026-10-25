@@ -23,6 +23,10 @@ class ExplainResponse(Explanation):
     mismatches: list[str]
 
 
+class TokenizeRequest(BaseModel):
+    text: str
+
+
 @app.get("/api/text")
 def get_text():
     with open(FILE_OUTPUT, "r") as f:
@@ -33,6 +37,14 @@ def get_text():
         "text": content["text"],
         "tokens": tokenize(content["text"]),
     }
+
+
+@app.post("/api/tokenize")
+def api_tokenize(req: TokenizeRequest):
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is empty")
+    return {"text": text, "tokens": tokenize(text)}
 
 
 @app.post("/api/explain")
