@@ -3,19 +3,32 @@
 <head><meta charset="utf-8"><title>Lesen</title>
 <style>
   body { font-family: Georgia, serif; font-size: 20px; line-height: 1.8;
-         max-width: 700px; margin: 60px auto 220px; padding: 0 20px; }
+         max-width: 700px; margin: 60px auto; padding: 0 20px; }
   .word { cursor: pointer; }
   .word:hover { background: #ffe; }
   .word.selected { background: #fe8; }
-  #panel { position: fixed; left: 0; right: 0; bottom: 0; background: #f6f6f6;
+  /* Narrow windows: a bottom sheet that scrolls itself and never takes more
+     than 45% of the screen; the page gets matching room below the text. */
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; max-height: 45vh;
+           overflow-y: auto; box-sizing: border-box; background: #f6f6f6;
            border-top: 1px solid #ccc; font-family: sans-serif; font-size: 16px;
            line-height: 1.5; padding: 12px 20px; display: none; }
-  #panel .inner { max-width: 700px; margin: 0 auto; }
-  #panel .word-text { font-size: 22px; font-weight: bold; }
-  #panel dl { display: grid; grid-template-columns: max-content 1fr;
-              gap: 2px 12px; margin: 8px 0 0; }
+  #panel .inner { max-width: 700px; margin: 0 auto; position: relative; }
+  #panel .close { position: absolute; top: -4px; right: 0; border: none;
+                  background: none; font-size: 24px; color: #666; cursor: pointer; }
+  #panel .word-text { font-size: 22px; font-weight: bold; padding-right: 30px; }
+  #panel dl { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 6px 0 0; }
+  #panel dl div { display: flex; gap: 6px; }
   #panel dt { color: #666; }
   #panel dd { margin: 0; }
+  /* Wide windows: the panel sits beside the text instead of over it. */
+  @media (min-width: 1100px) {
+    body { max-width: 1120px; }
+    #layout { display: grid; grid-template-columns: minmax(0, 700px) 380px;
+              gap: 40px; align-items: start; }
+    #panel { position: sticky; top: 20px; max-height: calc(100vh - 40px);
+             border: 1px solid #ccc; border-radius: 6px; }
+  }
   #panel .model { margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd; }
   #panel .model .status { color: #666; font-style: italic; }
   #panel .model .error, #panel .mismatch { color: #b00; }
@@ -23,9 +36,13 @@
 </style>
 </head>
 <body>
-<h1 id="title"></h1>
-<div id="text"></div>
-<div id="panel"><div class="inner"></div></div>
+<div id="layout">
+  <main>
+    <h1 id="title"></h1>
+    <div id="text"></div>
+  </main>
+  <aside id="panel"><div class="inner"></div></aside>
+</div>
 <script>
 let text = '';
 let tokens = [];
@@ -60,7 +77,27 @@ document.getElementById('text').addEventListener('click', e => {
   const t = tokens[span.dataset.i];
   showFacts(t);
   explainWord(t.i);
+  span.scrollIntoView({block: 'nearest'});
 });
+
+// In bottom-sheet mode, give the page as much room below the text as the panel
+// is tall, so the end of the text and the tapped word can be scrolled into view.
+const panel = document.getElementById('panel');
+new ResizeObserver(() => {
+  const covering = getComputedStyle(panel).position === 'fixed' && panel.style.display !== 'none';
+  const room = covering ? panel.offsetHeight + 'px' : '';
+  document.body.style.paddingBottom = room;
+  document.documentElement.style.scrollPaddingBottom = room;
+}).observe(panel);
+
+function closePanel() {
+  panel.style.display = 'none';
+  if (selected) selected.classList.remove('selected');
+  selected = null;
+  requestId++;  // drop any answer still on its way
+  document.body.style.paddingBottom = '';
+  document.documentElement.style.scrollPaddingBottom = '';
+}
 
 function explainWord(i) {
   // Only the latest tap's answer is shown; an earlier one arriving late is ignored.
@@ -124,21 +161,19 @@ function showFacts(t) {
 
   const inner = document.querySelector('#panel .inner');
   inner.replaceChildren();
-  const title = document.createElement('div');
-  title.className = 'word-text';
-  title.textContent = t.text;
+  const close = el('button', '×', 'close');
+  close.title = 'Close';
+  close.addEventListener('click', closePanel);
+  const title = el('div', t.text, 'word-text');
   const dl = document.createElement('dl');
   for (const [k, v] of rows) {
-    const dt = document.createElement('dt');
-    dt.textContent = k;
-    const dd = document.createElement('dd');
-    dd.textContent = v;
-    dl.append(dt, dd);
+    const pair = document.createElement('div');
+    pair.append(el('dt', k), el('dd', v));
+    dl.append(pair);
   }
-  const model = document.createElement('div');
-  model.className = 'model';
-  inner.append(title, dl, model);
-  document.getElementById('panel').style.display = 'block';
+  const model = el('div', '', 'model');
+  inner.append(close, title, dl, model);
+  panel.style.display = 'block';
 }
 </script>
 </body>
