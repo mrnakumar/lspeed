@@ -229,3 +229,42 @@ the reader page; "everything is tappable" (009).
 Dropped or deferred: seeding the known set from Goethe phrases; requiring texts to
 use specific target words; the known-word budget as a goal. 004–008 describe the
 first version and stay as a record of it.
+
+---
+
+## 013 — The model works out the facts itself; spaCy checks them
+
+012 had spaCy's analysis go to the model as the facts, with code then checking the
+model's facts against spaCy's. Written out, that check is nearly empty. A model
+handed `Case=Dat` and asked for the case will say dative, so agreement only shows
+that it copied. And when spaCy is wrong — in the generated texts it tags the verbs
+`höre` and `wasche` as adjectives — the model copies the error and the check passes.
+
+So the model is not given spaCy's analysis. It gets the text with the tapped word in
+brackets and works out case, gender, and number itself; code compares its answer
+with spaCy's. Two independent sources now have to agree. When they do, that means
+something. When they don't, one of them is wrong, which is exactly the case worth
+logging and reviewing — and spaCy's errors become visible instead of passing
+through.
+
+The cost is that the model makes its own mistakes, so there will be more
+disagreements than under the copying design. Each one is a candidate for the gold
+set. It also follows that a retry must not show the model spaCy's answer, or the
+check becomes a copy check again.
+
+The model gets the whole text, not only the sentence. Case, gender, and number are
+usually decided inside the sentence, but not always: `ihr` in *Ich sehe Anna. Ich
+gebe ihr das Buch.* depends on the sentence before, and `sie` can mean she, they, or
+formal you. The texts are short, so the extra input costs little; a long pasted text
+will need a window around the tapped word instead.
+
+The browser sends only the text and the tapped token's position. The server parses
+the text again, marks the word, and calls the model, so the facts it checks against
+come from its own parse, not from the page. The panel shows spaCy's facts and the
+model's answer together, so disagreements are visible while reading.
+
+Not settled here: whether giving the model spaCy's analysis makes it more or less
+accurate, and whether whole-text context beats the sentence alone. Both are eval
+questions for the gold set.
+
+Changes to 012: spaCy is the check on the model's facts, not their input.

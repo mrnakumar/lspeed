@@ -1,8 +1,8 @@
 # lspeed
 
 A German reader where tapping any word explains its grammar — case, gender,
-number, and *why* it has that form. Explanations are written by an LLM, grounded
-in spaCy's analysis of the sentence, and checked against it.
+number, and *why* it has that form. Explanations are written by an LLM and checked
+against spaCy's analysis of the text.
 
 Built as a learning project with two goals: learning German, and moving from Java
 development into AI engineering. Its first user is its author — see decisions 011
@@ -26,25 +26,24 @@ Tapping `dem` in *Ich fahre mit dem Bus*:
 > **dem** — dative, masculine, singular. Article of *Bus* (der Bus).
 > Dative because *mit* always takes the dative.
 
-spaCy supplies the facts (`Case=Dat`, `Gender=Masc`, `Number=Sing`, head `Bus`,
-governed by `mit`). The model turns them into an explanation and names the rule.
-Code then checks that the explanation states the same case, gender, and number
-spaCy found.
+The model works out the facts and names the rule. spaCy analyses the same text
+independently (`Case=Dat`, `Gender=Masc`, `Number=Sing`), and code checks that the
+two agree.
 
 ## Status
 
-Early. The reader exists; the grammar explanations don't yet.
+Early. Tapping a word explains it; nothing checks the explanation yet.
 
 Working:
-- A FastAPI endpoint that tokenizes a text with spaCy and returns each token with
-  its lemma
 - A reader page that renders the text as tappable words — every word except
   punctuation (decision 009)
+- Tapping a word shows spaCy's analysis of it at once, then the model's
+  explanation a few seconds later
 - A generator that writes a B1 text on a topic — what's left of the first
   version (see History), and currently the only source of text for the reader
 
 Not built yet:
-- Tapping a word does nothing yet
+- The check of the model's facts against spaCy's, and a log of taps
 - No way to read your own text — paste or URL
 - No evals
 
@@ -52,15 +51,15 @@ Not built yet:
 
 The design, carried over from the first version, is **the model writes, the code
 checks**. A model explaining grammar will sometimes state the wrong case or invent
-a rule. spaCy's morphological analysis is exact about what it reports, so it serves
-as both the input to the explanation and the check on it:
+a rule. spaCy's morphological analysis is an independent second opinion on the
+facts, so it serves as the check:
 
-1. spaCy parses the sentence: lemma, part of speech, case, gender, number, tense,
-   and the word each token depends on.
-2. The tapped token's analysis and the sentence go to the model, which returns
-   structured JSON: the facts, the rule, and a short explanation.
-3. Code compares the facts in the explanation with spaCy's. A mismatch triggers a
-   retry or flags the explanation.
+1. The page sends the text and the position of the tapped word.
+2. The server marks that word in the text and sends it to the model, which returns
+   structured JSON: case, gender, number, what causes the form, the rule, and a
+   short explanation. The model is not shown spaCy's analysis (decision 013).
+3. Code compares the model's case, gender, and number with spaCy's, and flags a
+   mismatch.
 
 spaCy is not always right either. Disagreements between the two are logged and
 reviewed — deciding which source to trust is part of the work.
@@ -85,11 +84,12 @@ Generate a text (see History):
 
 ## Layout
 
-    app.py            FastAPI routes: tokenized text endpoint, static files
-    german.py         spaCy: tokenizing
+    app.py            FastAPI routes: text, explain, static files
+    german.py         spaCy: tokenizing, marking the tapped word
+    explanation.py    the explanation schema, prompt, and model call
     static/           the reader page
     main.py           text generator: prompt, topics
-    llm.py            API call, JSON extraction and validation
+    llm.py            API calls: structured output, and the generator's JSON path
     constants.py      JSON field names, output file name
     exceptions.py     API error types
     output.jsonl      generated texts, one JSON object per line
