@@ -1,0 +1,10 @@
+# Secrets
+.env
+
+# Python cache
+__pycache__/
+
+# Local data: generated texts, the tap log, and the gold set
+output.jsonl
+taps.jsonl
+gold.jsonl
