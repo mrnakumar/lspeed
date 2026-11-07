@@ -268,3 +268,52 @@ accurate, and whether whole-text context beats the sentence alone. Both are eval
 questions for the gold set.
 
 Changes to 012: spaCy is the check on the model's facts, not their input.
+
+---
+
+## 014 — Evals use answers nobody has to label by hand
+
+012 and 013 planned a hand-labelled gold set of tapped words. Labelling every case
+by hand takes too long for a project with limited hours, so the known answers come
+from two sources that are labelled already:
+
+- **Template sentences.** Code builds the sentence from a preposition, an article,
+  and a noun of known gender, so it knows the answer by construction: `Ich fahre mit
+  [dem] Bus.` is dative, masculine, singular. Templates also aim at the grammar that
+  is actually hard — two-way prepositions, adjective endings — which real text
+  rarely contains in numbers.
+- **A sample of a Universal Dependencies German treebank** (GSD or HDT), where
+  linguists annotated case, gender, and number for every word. The models may have
+  seen these public sentences in training; the templates guard against that.
+
+Both the model and spaCy are scored against these answers. spaCy is a second
+opinion, not the truth: in all four disagreements logged so far, spaCy was wrong —
+it took the verb `höre` for a noun, `Kiezkantinen` for a singular, and the subject
+`Versprechen` for an accusative.
+
+The fields mean what grammar books say, as the explain prompt already states:
+plural words have no gender, prepositions have no case, and a contraction like
+`zum` (zu + dem) takes the facts of its article part. spaCy labels some of these
+differently — it gives plurals a gender — so its output is converted before
+scoring, or its score would count a labelling difference as an error.
+
+Rules can't be checked by code, so an LLM judge grades them with yes/no questions:
+is the rule true, and does it apply to this word here? The judge is checked
+against a fixed check set: one correct rule written per template family, plus
+broken copies made by code (`mit always takes the accusative`), whose answer is
+known to be no. The check set is re-run whenever the judge, the explaining model,
+or a prompt changes. The judge is a different model from the one explaining, gives
+its reasoning before its verdict, and is run twice to see whether its verdicts
+hold. A few verdicts are read by hand after each run. Some human judgment remains,
+but it is small and aimed at the judge, not at every case.
+
+Each eval run uses a fixed sample and writes one line of results: date, model,
+prompt version, accuracy per field for the model and for spaCy, latency, and cost.
+Comparing prompts or models is then a comparison of two lines.
+
+Order: dative-only prepositions first, then two-way prepositions, then the same
+eval on a smaller model, then the treebank sample, then the judge.
+
+Changes to 012 and 013: no hand-labelled gold set. The questions 013 left for the
+gold set — whether spaCy's analysis helps the model, and whether the whole text
+beats the sentence alone — are answered with these evals instead.

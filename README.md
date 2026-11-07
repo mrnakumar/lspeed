@@ -101,10 +101,11 @@ Each step teaches one AI engineering skill and closes part of the grammar gap
 
 1. **Grammar on tap.** Tap → spaCy analysis → model explanation as structured JSON
    → check against spaCy. Plus pasting your own text into the reader.
-2. **Evals.** A hand-labelled gold set of tapped words, exact checks of
-   case/gender/number against spaCy, an LLM judge for whether the stated rule is
-   true, and comparisons across prompts and models — including whether a small,
-   fast model is good enough, since someone is waiting on every tap.
+2. **Evals.** Known answers without hand-labelling — template sentences and a
+   UD treebank sample — scoring both the model and spaCy on case/gender/number; an
+   LLM judge for whether the stated rule is true, checked with deliberately broken
+   rules; and comparisons across prompts and models — including whether a small,
+   fast model is good enough, since someone is waiting on every tap (decision 014).
 3. **Grounding in a grammar reference.** Retrieve the relevant rule (two-way
    prepositions, adjective endings) and cite it — once evals show the model
    stating wrong rules. Retrieval gets its own eval.
