@@ -93,6 +93,7 @@ Generate a text (see History):
     constants.py      JSON field names, output file name
     exceptions.py     API error types
     output.jsonl      generated texts, one JSON object per line
+    evals/hdt.py      the HDT treebank, the answer key for evals (decision 014)
 
 ## Direction
 

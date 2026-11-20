@@ -8,3 +8,6 @@ __pycache__/
 output.jsonl
 taps.jsonl
 gold.jsonl
+
+# The HDT treebank, downloaded by evals/hdt.py
+data/
