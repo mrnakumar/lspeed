@@ -277,14 +277,22 @@ Changes to 012: spaCy is the check on the model's facts, not their input.
 by hand takes too long for a project with limited hours, so the known answers come
 from two sources that are labelled already:
 
+- **A sample of the HDT treebank** (Universal Dependencies), whose case, gender,
+  and number were annotated by hand. GSD, the other large German treebank, was
+  ruled out: its features were mostly assigned by software. HDT is IT news, not
+  B1 text, and some of its labels are only partly specified (`Masc,Neut`); those
+  words are skipped. The models may have seen these public sentences in
+  training; the templates guard against that.
 - **Template sentences.** Code builds the sentence from a preposition, an article,
   and a noun of known gender, so it knows the answer by construction: `Ich fahre mit
-  [dem] Bus.` is dative, masculine, singular. Templates also aim at the grammar that
-  is actually hard — two-way prepositions, adjective endings — which real text
-  rarely contains in numbers.
-- **A sample of a Universal Dependencies German treebank** (GSD or HDT), where
-  linguists annotated case, gender, and number for every word. The models may have
-  seen these public sentences in training; the templates guard against that.
+  [dem] Bus.` is dative, masculine, singular. Easy cases like that one would pass
+  for every model and tell nothing, so templates aim only at grammar that is hard
+  and rare in real text — two-way prepositions, adjective endings.
+
+HDT's text may only be shared for academic use, and this repository is public. So
+the test file is downloaded from a fixed release, checked against a checksum, and
+kept out of git; the sample is committed as sentence and word IDs only, so every
+run uses the same words without the repository holding the sentences.
 
 Both the model and spaCy are scored against these answers. spaCy is a second
 opinion, not the truth: in all four disagreements logged so far, spaCy was wrong —
@@ -294,8 +302,8 @@ it took the verb `höre` for a noun, `Kiezkantinen` for a singular, and the subj
 The fields mean what grammar books say, as the explain prompt already states:
 plural words have no gender, prepositions have no case, and a contraction like
 `zum` (zu + dem) takes the facts of its article part. spaCy labels some of these
-differently — it gives plurals a gender — so its output is converted before
-scoring, or its score would count a labelling difference as an error.
+differently — both it and HDT give plurals a gender — so their labels are
+converted before scoring, or a labelling difference would count as an error.
 
 Rules can't be checked by code, so an LLM judge grades them with yes/no questions:
 is the rule true, and does it apply to this word here? The judge is checked
@@ -311,8 +319,10 @@ Each eval run uses a fixed sample and writes one line of results: date, model,
 prompt version, accuracy per field for the model and for spaCy, latency, and cost.
 Comparing prompts or models is then a comparison of two lines.
 
-Order: dative-only prepositions first, then two-way prepositions, then the same
-eval on a smaller model, then the treebank sample, then the judge.
+Order: the HDT sample first, since real text answers the two open questions —
+whether spaCy is accurate enough to be the check, and whether a smaller, faster
+model is accurate enough to use. Then templates, for grammar the sample shows is
+weak or barely contains. Then the judge.
 
 Changes to 012 and 013: no hand-labelled gold set. The questions 013 left for the
 gold set — whether spaCy's analysis helps the model, and whether the whole text
